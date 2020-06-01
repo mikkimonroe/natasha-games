@@ -109,3 +109,5 @@ src/environments/environment.*
 .history
 
 www
+
+.firebase
