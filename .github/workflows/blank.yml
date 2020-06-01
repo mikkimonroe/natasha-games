@@ -12,12 +12,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - uses: coturiv/setup-ionic@v1
     - uses: actions/checkout@master
     - uses: actions/setup-node@master
       with:
         node-version: '10.x'
     - run: npm install
-    - run: npm run build:prod
+    - run: ionic build
     - uses: w9jds/firebase-action@master
       with:
         args: deploy --only hosting
