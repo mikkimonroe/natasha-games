@@ -18,7 +18,7 @@ jobs:
       with:
         node-version: '10.x'
     - run: npm install
-    - run: md /src/environments; echo "$ENVIRONMENT_TEST" >> src/environments/environment; echo "$ENVIRONMENT_PROD" >> src/environments/environment.prod
+    - run: md /src/environments; echo "123" >> src/environments/environment; echo "456" >> src/environments/environment.prod
       env:
         ENVIRONMENT_TEST: ${{ secrets.ENVIRONMENT_TEST }}
         ENVIRONMENT_PROD: ${{ secrets.ENVIRONMENT_PROD }}
