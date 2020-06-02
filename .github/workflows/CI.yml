@@ -18,9 +18,10 @@ jobs:
       with:
         node-version: '10.x'
     - run: echo "$ENVIRONMENT_TEST" >> src/environments/environment
-    - run: echo "$ENVIRONMENT_TEST" >> src/environments/environment.prod
       env:
         ENVIRONMENT_TEST: ${{ secrets.ENVIRONMENT_TEST }}
+    - run: echo "$ENVIRONMENT_PROD" >> src/environments/environment.prod
+      env:
         ENVIRONMENT_PROD: ${{ secrets.ENVIRONMENT_PROD }}
     - run: npm install
     - run: ionic build
