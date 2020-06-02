@@ -17,13 +17,10 @@ jobs:
     - uses: actions/setup-node@master
       with:
         node-version: '10.x'
-    - run: echo "$ENVIRONMENT_TEST"
+    - run: echo "$ENVIRONMENT_TEST" >> src/environments/environment.ts
       env: 
         ENVIRONMENT_TEST: ${{ secrets.ENVIRONMENT_TEST }}
-    - run: echo "$ENVIRONMENT_TEST" >> src/environments/environment
-      env: 
-        ENVIRONMENT_TEST: ${{ secrets.ENVIRONMENT_TEST }}
-    - run: echo "$ENVIRONMENT_PROD" >> src/environments/environment.prod
+    - run: echo "$ENVIRONMENT_PROD" >> src/environments/environment.prod.ts
       env: 
         ENVIRONMENT_PROD: ${{ secrets.ENVIRONMENT_PROD }}
     - run: npm install
