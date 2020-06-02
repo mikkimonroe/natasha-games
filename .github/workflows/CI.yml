@@ -17,7 +17,7 @@ jobs:
     - uses: actions/setup-node@master
       with:
         node-version: '10.x'
-    - env:
+    - env: 
         ENVIRONMENT_TEST: ${{ secrets.ENVIRONMENT_TEST }}
         ENVIRONMENT_PROD: ${{ secrets.ENVIRONMENT_PROD }}
     - run: echo "$ENVIRONMENT_TEST" >> src/environments/environment
