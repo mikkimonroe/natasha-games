@@ -17,12 +17,11 @@ jobs:
     - uses: actions/setup-node@master
       with:
         node-version: '10.x'
-    - run: echo "$ENVIRONMENT_TEST" >> src/environments/environment
-      env:
+    - env:
         ENVIRONMENT_TEST: ${{ secrets.ENVIRONMENT_TEST }}
-    - run: echo "$ENVIRONMENT_PROD" >> src/environments/environment.prod
-      env:
         ENVIRONMENT_PROD: ${{ secrets.ENVIRONMENT_PROD }}
+    - run: echo "$ENVIRONMENT_TEST" >> src/environments/environment
+    - run: echo "$ENVIRONMENT_PROD" >> src/environments/environment.prod
     - run: npm install
     - run: ionic build
     - uses: w9jds/firebase-action@master
