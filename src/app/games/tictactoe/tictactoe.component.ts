@@ -1,10 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { AngularFirestore, AngularFirestoreCollection, AngularFirestoreDocument } from '@angular/fire/firestore';
-import { Observable } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { getHtmlTagDefinition } from '@angular/compiler';
 import { ɵBrowserDomAdapter } from '@angular/platform-browser';
 
 export interface Board { player1?: string, player2?: string, turn?: string, g: any[], msg?: string };
+export interface Msgs { msgs: { sender: string, name: string, read: boolean, alert: boolean, msg: string }[] };
 
 @Component({
   selector: 'app-tictactoe',
@@ -16,8 +17,8 @@ export class TictactoeComponent implements OnInit {
   public name = "";
 
   public get player(): string {
-    if( this.board.player1 && this.board.player1 === this.id ) return "PLAYER 1";
-    if( this.board.player2 && this.board.player2 === this.id ) return "PLAYER 2";
+    if (this.board.player1 && this.board.player1 === this.id) return "PLAYER X";
+    if (this.board.player2 && this.board.player2 === this.id) return "PLAYER O";
     return null;
   }
 
@@ -26,10 +27,15 @@ export class TictactoeComponent implements OnInit {
   private boards: AngularFirestoreCollection;
 
   private boardDocument: AngularFirestoreDocument<Board>;
+  private boardSubscripiton: Subscription;
   public board: Board = { g: [] };
 
+  private msgsDocument: AngularFirestoreDocument<Msgs>;
+  private msgsSubscription: Subscription;
+  public msgs: Msgs = <Msgs><unknown>{ msgs: [] };
+
   private gameBoard: {};
-  
+
   private numRows = 2;
   private numCols = 2;
 
@@ -41,36 +47,65 @@ export class TictactoeComponent implements OnInit {
     // Reset game and data and establish player1
     // If another active player they will note reset and become player2
     this.reset();
-
-    // Register for changes.
-    //
-    // If a new player joins they will reset and become player1
-    // 
-    this.boardDocument.valueChanges().subscribe(board => {
-      this.board = board;
-      this.validate();
-    })
   }
 
   private reset() {
-    this.boardDocument = this.firestore.collection("boards").doc("1");
     this.board = { player1: this.id, turn: 'X', g: [] };
     this.playerPiece = 'X';
     this.initBoard();
 
     var that = this;
+    this.boardDocument = this.firestore.collection("boards").doc("1");
+    // persist rest board
     this.boardDocument.set(this.board)
       .catch(function (error) {
-        console.error("boards/1: error", error);
+        console.error("boards/1: create error", error);
       });
 
-    // this.firestore.collection("msgs").doc("1").set({})
-    //   .then(function () {
-    //     console.log("msgs/1 created");
-    //   })
-    //   .catch(function (error) {
-    //     console.error("msgs/1: error", error);
-    //   });
+    if (!this.boardSubscripiton) {
+      this.boardSubscripiton = this.boardDocument.valueChanges().subscribe(board => {
+        this.board = board;
+        this.validate();
+      },
+      error => {
+        console.error("boards/1: valueChanges error", error);
+      })
+    }
+
+    this.msgsDocument = this.firestore.collection("msgs").doc<Msgs>("1");
+    this.msgsDocument.get().subscribe(msgs => {
+      if (msgs.exists) {
+        this.msgs = <Msgs><unknown>msgs.data();
+      } else {
+        this.msgsDocument.set(this.msgs).catch(error => {
+          console.error("msgs/1: create error", error);
+        })
+      }
+    });
+
+    if (!this.msgsSubscription) {
+      this.msgsSubscription = this.msgsDocument.valueChanges().subscribe(msgs => {
+        this.msgs = msgs;
+        this.processMsgs();
+      },
+        error => {
+          console.error("msgs/1: valueChanges error", error);
+        });
+    }
+  }
+
+  processMsgs() {
+    this.msgs.msgs.forEach(msg => {
+      if( msg.sender != this.id && !msg.read) {
+        if( msg.alert) {
+          alert(msg.name + ': ' + msg.msg);
+        }
+
+        // TODO add to chat view
+        msg.read = true;
+      }
+    });
+    this.update();
   }
 
   private initBoard() {
@@ -91,16 +126,16 @@ export class TictactoeComponent implements OnInit {
   }
 
   private validate() {
-    if( this.board.player1 === this.id ) {
+    if (this.board.player1 === this.id) {
       // we are player1
-      if( !this.board.player2 ) {
+      if (!this.board.player2) {
         // we have no player2!
         return false;
       } else {
         // we are player1 and have a player2...GAME IN PROGRESS!
         return true;
       }
-    } else if( !this.board.player2 ) {  
+    } else if (!this.board.player2) {
       // RESET detected! We must become player2!
       this.board.player2 = this.id;
       this.playerPiece = 'O';
@@ -119,6 +154,10 @@ export class TictactoeComponent implements OnInit {
 
   update() {
     this.boardDocument.update(this.board)
+      .catch(error =>
+        console.log(error));
+
+    this.msgsDocument.update(this.msgs)
       .catch(error =>
         console.log(error));
   }
@@ -142,22 +181,6 @@ export class TictactoeComponent implements OnInit {
   }
 
   public markNextFree(d, that) {
-
-
-    let xx = Math.floor(d / 3);
-    let yy = d % 3;
-
-    var nextY: any;
-
-    nextY = false;
-
-    // for (var y = 0; y < that.numRows; y++) {
-    //   if (that.gameBoard[x][y] === 'free') {
-    //     nextY = y;
-    //     break;
-    //   }
-    // }
-
     if (that.board.turn !== that.playerPiece) {
       alert('Not ur turn!');
       return false;
@@ -168,31 +191,24 @@ export class TictactoeComponent implements OnInit {
       return false;
     }
 
-    that.gameBoard[xx][yy] = that.playerPiece;
+    let x = Math.floor(d / 3);
+    let y = d % 3;
+    that.gameBoard[x][y] = that.playerPiece;
     that.board.g[d] = that.playerPiece;
     that.board.turn = that.board.turn === 'X' ? 'O' : 'X';
     that.update();
 
-    // document.querySelector('#column-' + x + ' .row-' + nextY + ' circle').setAttribute(
-    //   'class', that.playerPiece
-    // );
-
-    // that.numTurns = that.numTurns + 1;
-
     if (that.isWinner(that)) {
-      alert(that.playerPiece + ' wins!');
+      alert('You win!');
+      that.msgs.msgs.append({sender: this.id, name: '', read: false, alert: true, msg: 'You lose!'});
       that.clearBoard(that);
-
-      that.board.msg = that.playerPiece + ' wins!';
       that.update();
-    } else if (this.board.g.findIndex((space => { return space === ''})) === -1) {
+    } else if (this.board.g.findIndex((space => { return space === '' })) === -1) {
       alert('It\'s a tie!');
+      that.msgs.msgs.append({sender: this.id, name: '', read: false, alert: true, msg: 'It\'s a tie!'});
       that.clearBoard(that);
-      that.board.msg = 'It\'s a tie!';
       that.update();
     }
-    
-    // that.currentPlayer = that.currentPlayer === 'X' ? 'O' : 'X';
   };
 
   // private clearBoard(that) {
