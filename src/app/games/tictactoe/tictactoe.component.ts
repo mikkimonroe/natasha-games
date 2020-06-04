@@ -50,19 +50,22 @@ export class TictactoeComponent implements OnInit {
   }
 
   private reset() {
+    console.log(this.id + ': reset');
     this.board = { player1: this.id, turn: 'X', g: [] };
     this.playerPiece = 'X';
     this.initBoard();
 
     var that = this;
     this.boardDocument = this.firestore.collection("boards").doc("1");
-    // persist rest board
+    
+    // persist reset board
     this.boardDocument.set(this.board)
       .catch(function (error) {
         console.error("boards/1: create error", error);
       });
 
     if (!this.boardSubscripiton) {
+      console.log(this.id + ': create boardSubscription');
       this.boardSubscripiton = this.boardDocument.valueChanges().subscribe(board => {
         this.board = board;
         this.validate();
@@ -77,6 +80,7 @@ export class TictactoeComponent implements OnInit {
       if (msgs.exists) {
         this.msgs = <Msgs><unknown>msgs.data();
       } else {
+        console.log(this.id + ': create msgs/1');
         this.msgsDocument.set(this.msgs).catch(error => {
           console.error("msgs/1: create error", error);
         })
@@ -84,6 +88,7 @@ export class TictactoeComponent implements OnInit {
     });
 
     if (!this.msgsSubscription) {
+      console.log(this.id + ': create msgsSubscription');
       this.msgsSubscription = this.msgsDocument.valueChanges().subscribe(msgs => {
         this.msgs = msgs;
         this.processMsgs();
@@ -92,23 +97,30 @@ export class TictactoeComponent implements OnInit {
           console.error("msgs/1: valueChanges error", error);
         });
     }
+
+    this.updateBoard();
   }
 
   processMsgs() {
+    let persist = false;
+    console.log(this.id + ': processMsgs');
     this.msgs.msgs.forEach(msg => {
       if( msg.sender != this.id && !msg.read) {
         if( msg.alert) {
+          console.log(this.id + ': ' + msg.name + ': ' + msg.msg);
           alert(msg.name + ': ' + msg.msg);
         }
 
         // TODO add to chat view
         msg.read = true;
+        persist = true;
       }
     });
-    this.update();
+    if( persist ) { this.updateMsgs(); }
   }
 
   private initBoard() {
+    console.log(this.id + ': initBoard');
     this.board.g = [];;
     let gi = 0;
 
@@ -126,51 +138,51 @@ export class TictactoeComponent implements OnInit {
   }
 
   private validate() {
+    console.log(this.id + ': validate');
     if (this.board.player1 === this.id) {
       // we are player1
       if (!this.board.player2) {
+        console.log(this.id + ': no player2');
         // we have no player2!
         return false;
       } else {
         // we are player1 and have a player2...GAME IN PROGRESS!
+        console.log(this.id + ': player 1 ... in progress');
         return true;
       }
     } else if (!this.board.player2) {
-      // RESET detected! We must become player2!
+      console.log(this.id + ': RESET detected! We must become player2!');
       this.board.player2 = this.id;
       this.playerPiece = 'O';
-      this.update();
+      this.updateBoard();
       return true;
     } else if (this.board.player2 === this.id) {
+      console.log(this.id + ': player2 ... in progress');
       // we are player2! GAME IN PROGRESS!
       return true;
     } else {
       // probably shouldn't happen
-      console.log("old game reset");
+      console.log(this.id + ': old game reset');
       this.reset(); // become player1
       return false; // we have no player2 :-(
     }
   }
 
-  update() {
+  updateBoard() {
+    console.log(this.id + ': updateBoard');
     this.boardDocument.update(this.board)
       .catch(error =>
         console.log(error));
+  }
 
+  updateMsgs() {
+    console.log(this.id + ': updateMsgs');
     this.msgsDocument.update(this.msgs)
       .catch(error =>
         console.log(error));
   }
 
   async ngOnInit() {
-
-    // Start a new game (overwrite any existing)
-
-
-    // await this.boardDocument.valueChanges().toPromise().then( board => {
-    //   this.board = board;
-    // })
-
     var spaces = document.querySelectorAll('.space');
     let that = this;
     Array.prototype.forEach.call(spaces, function (space) {
@@ -181,6 +193,7 @@ export class TictactoeComponent implements OnInit {
   }
 
   public markNextFree(d, that) {
+    console.log(this.id + ': markNextFree');
     if (that.board.turn !== that.playerPiece) {
       alert('Not ur turn!');
       return false;
@@ -196,45 +209,26 @@ export class TictactoeComponent implements OnInit {
     that.gameBoard[x][y] = that.playerPiece;
     that.board.g[d] = that.playerPiece;
     that.board.turn = that.board.turn === 'X' ? 'O' : 'X';
-    that.update();
+    that.updateBoard();
 
     if (that.isWinner(that)) {
+      console.log(this.id + ': You win!');
       alert('You win!');
-      that.msgs.msgs.append({sender: this.id, name: '', read: false, alert: true, msg: 'You lose!'});
-      that.clearBoard(that);
-      that.update();
+
+      that.msgs.msgs.push({sender: this.id, name: '', read: false, alert: true, msg: 'You lose!'});
+      that.updateMsgs();
+
+      that.reset(that);
     } else if (this.board.g.findIndex((space => { return space === '' })) === -1) {
+      console.log(this.id + ': It\'s a tie!');
       alert('It\'s a tie!');
+
       that.msgs.msgs.append({sender: this.id, name: '', read: false, alert: true, msg: 'It\'s a tie!'});
-      that.clearBoard(that);
-      that.update();
+      that.updateMsgs();
+
+      that.reset(that);
     }
   };
-
-  // private clearBoard(that) {
-
-  //   that.board.g = [];
-  //   let gi = 0;
-
-  //   that.gameBoard = {};
-
-  //   for (var x = 0; x <= that.numRows; x++) {
-
-  //     that.gameBoard[x] = {};
-
-  //     for (var y = 0; y <= that.numCols; y++) {
-  //       that.board.g[gi++] = '';
-  //       that.gameBoard[x][y] = '';
-  //     }
-  //   }
-
-  //   that.numTurns = 0;
-
-  //   this.update();
-
-  //   return that.gameBoard;
-
-  // };
 
   private isWinner(that) {
     if (
