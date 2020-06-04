@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { AngularFirestore, AngularFirestoreCollection, AngularFirestoreDocument } from '@angular/fire/firestore';
 import { Observable, Subscription } from 'rxjs';
-import { getHtmlTagDefinition } from '@angular/compiler';
+import { getHtmlTagDefinition, createUrlResolverWithoutPackagePrefix } from '@angular/compiler';
 import { ɵBrowserDomAdapter } from '@angular/platform-browser';
 
 export interface Board { player1?: string, player2?: string, turn?: string, g: any[], msg?: string };
@@ -51,14 +51,12 @@ export class TictactoeComponent implements OnInit {
 
   private reset() {
     console.log(this.id + ': reset');
-    this.board = { player1: this.id, turn: 'X', g: [] };
-    this.playerPiece = 'X';
+    
+    var that = this;
     this.initBoard();
 
-    var that = this;
-    this.boardDocument = this.firestore.collection("boards").doc("1");
-    
     // persist reset board
+    this.boardDocument = this.firestore.collection("boards").doc("1");
     this.boardDocument.set(this.board)
       .catch(function (error) {
         console.error("boards/1: create error", error);
@@ -70,9 +68,9 @@ export class TictactoeComponent implements OnInit {
         this.board = board;
         this.validate();
       },
-      error => {
-        console.error("boards/1: valueChanges error", error);
-      })
+        error => {
+          console.error("boards/1: valueChanges error", error);
+        })
     }
 
     this.msgsDocument = this.firestore.collection("msgs").doc<Msgs>("1");
@@ -81,7 +79,9 @@ export class TictactoeComponent implements OnInit {
         this.msgs = <Msgs><unknown>msgs.data();
       } else {
         console.log(this.id + ': create msgs/1');
-        this.msgsDocument.set(this.msgs).catch(error => {
+        this.msgsDocument.set(this.msgs).then(() => {
+          console.log(this.id + ': ' + 'msgs created');
+        }).catch(error => {
           console.error("msgs/1: create error", error);
         })
       }
@@ -97,30 +97,33 @@ export class TictactoeComponent implements OnInit {
           console.error("msgs/1: valueChanges error", error);
         });
     }
-
-    this.updateBoard();
   }
 
   processMsgs() {
     let persist = false;
-    console.log(this.id + ': processMsgs');
-    this.msgs.msgs.forEach(msg => {
-      if( msg.sender != this.id && !msg.read) {
-        if( msg.alert) {
-          console.log(this.id + ': ' + msg.name + ': ' + msg.msg);
-          alert(msg.name + ': ' + msg.msg);
-        }
+    console.log(this.id + ': processMsgs' + this.msgs.msgs);
+    if (this.msgs.msgs) {
+      this.msgs.msgs.forEach(msg => {
+        if (msg.sender != this.id && !msg.read) {
+          if (msg.alert) {
+            console.log(this.id + ': ' + msg.name + ': ' + msg.msg);
+            alert(msg.name + ': ' + msg.msg);
+          }
 
-        // TODO add to chat view
-        msg.read = true;
-        persist = true;
-      }
-    });
-    if( persist ) { this.updateMsgs(); }
+          // TODO add to chat view
+          msg.read = true;
+          persist = true;
+        }
+      });
+      if (persist) { this.updateMsgs(); }
+    }
   }
 
   private initBoard() {
     console.log(this.id + ': initBoard');
+
+    this.playerPiece = 'X';
+    this.board = { player1: this.id, turn: this.playerPiece, g: [] };
     this.board.g = [];;
     let gi = 0;
 
@@ -215,7 +218,7 @@ export class TictactoeComponent implements OnInit {
       console.log(this.id + ': You win!');
       alert('You win!');
 
-      that.msgs.msgs.push({sender: this.id, name: '', read: false, alert: true, msg: 'You lose!'});
+      that.msgs.msgs.push({ sender: this.id, name: '', read: false, alert: true, msg: 'You lose!' });
       that.updateMsgs();
 
       that.reset(that);
@@ -223,7 +226,7 @@ export class TictactoeComponent implements OnInit {
       console.log(this.id + ': It\'s a tie!');
       alert('It\'s a tie!');
 
-      that.msgs.msgs.append({sender: this.id, name: '', read: false, alert: true, msg: 'It\'s a tie!'});
+      that.msgs.msgs.append({ sender: this.id, name: '', read: false, alert: true, msg: 'It\'s a tie!' });
       that.updateMsgs();
 
       that.reset(that);
